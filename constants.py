@@ -9,7 +9,7 @@ pg.display.init()
 MAX_W, MAX_H = pg.display.get_desktop_sizes()[0]
 BF = 4
 FH = 24
-FPS = 20
+FPS = 10
 FONT = pg.font.SysFont('couriernew', FH, bold=True)
 FONT_SMALL = pg.font.SysFont('couriernew', 12, bold=True)
 COLORS = (pg.Color( 53,  53,  53),  # OLD: cell @ 0
@@ -61,7 +61,7 @@ def get_square_kernel(type:str, size:int=1, totalistic=True) -> np.ndarray:
                     kernel[it.multi_index] = 0
     if not totalistic:
         kernel[size, size] = 0
-    print(f'KERNEL:\n{kernel}')
+    # print(f'KERNEL:\n{kernel}')
     return kernel
 
 def random_totalistic_rule(kernel:np.ndarray, val_range:int=2) -> np.ndarray:
