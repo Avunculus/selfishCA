@@ -30,20 +30,15 @@ def flip_totalistic(cells:np.ndarray, kernel:np.ndarray,
             new_cells[np.where(ngb_sum == j)] = rule[j]
     return new_cells
 
-def show(sfc:pg.Surface, cells:np.ndarray, val_range:int) -> None:
+def show_totalistic(sfc:pg.Surface, cells:np.ndarray, val_range:int) -> None:
     img = pg.Surface(cells.shape)
     arr = np.zeros_like(cells)
     for i in range(1, val_range):       # 0 = black (doesn't need draw)
         color = img.map_rgb(VALUES[i])
         arr[np.where(cells==i)] = color
-    # color1 = img.map_rgb(COLORS[0])
-    # color2 = img.map_rgb(COLORS[1])
-    # arr[np.where(cells==1)] = color1
-    # arr[np.where(cells==2)] = color2
     pg.surfarray.blit_array(img, arr)
     img = pg.transform.scale(img, sfc.get_size())
     sfc.blit(img, (0, 0))
-
 
 def pad_to_fit(arr:np.ndarray, shape:tuple) -> np.ndarray:
     cols, rows = shape
@@ -52,8 +47,6 @@ def pad_to_fit(arr:np.ndarray, shape:tuple) -> np.ndarray:
     after1 = (rows - arr.shape[1]) // 2
     before1 = rows - arr.shape[1] - after1
     return np.pad(arr, ((before0, after0), (before1, after1)))
-
-
 
 def main(grid:np.ndarray, kernel: np.ndarray, rule:np.ndarray,
          scale:tuple[int,int], val_range:int) -> bool:
@@ -64,7 +57,7 @@ def main(grid:np.ndarray, kernel: np.ndarray, rule:np.ndarray,
     set_colordict(val_range)
     rez = (grid.shape[0] * scale[0], grid.shape[1] * scale[1])
     win = pg.display.set_mode(rez, flags=pg.NOFRAME)
-    show(win, grid.astype(np.int64), val_range)
+    show_totalistic(win, grid.astype(np.int64), val_range)
     clock = pg.time.Clock()
     autoflip = False
     running = True
@@ -87,27 +80,26 @@ def main(grid:np.ndarray, kernel: np.ndarray, rule:np.ndarray,
                                 grid = np.random.random(grid.shape) \
                                     * (val_range - 1)
                                 grid = grid.round()
-                                show(win, grid.astype(np.int64), val_range)
+                                show_totalistic(win, grid.astype(np.int64), val_range)
                         case pg.K_n:        # new game
                             if event.mod & pg.KMOD_CTRL:
                                 return True
         if autoflip: # advance 1 gen 
             grid = flip_totalistic(grid, kernel, rule) 
-            show(win, grid.astype(np.int64), val_range)
+            show_totalistic(win, grid.astype(np.int64), val_range)
         pg.display.update()
 
-SCALE = (4, 4)
+SCALE = (4, 4)              # should derive from: W, H, hoodsize, valrange -> scale up to prevent lag
 COLS  = MAX_W // SCALE[0]
 COLS -= COLS % 2
 ROWS  = MAX_H // SCALE[1]
 ROWS -= ROWS % 2
 GRID  = np.zeros((COLS, ROWS))
 
-
 if __name__ == '__main__':
     # current args: hood, hoodsize, valrange
     hood = 'V'
-    hood_size = 1
+    hood_size = 2
     val_range = 4       # cell values are in range(3)
     ca_code = 'Q' + hood + repr(hood_size) + 'T' + repr(val_range)
     print(f'CA: {ca_code}')
