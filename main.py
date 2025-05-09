@@ -1,9 +1,10 @@
 from gui import *
 from string import digits
 
-EVENTS = [pg.TEXTINPUT, pg.QUIT, pg.KEYDOWN, pg.MOUSEBUTTONDOWN]
+EVENTS = [pg.TEXTINPUT, pg.QUIT, pg.KEYDOWN, pg.MOUSEBUTTONDOWN, pg.MOUSEMOTION, pg.MOUSEWHEEL]
 VALUES = {0: pg.Color(0, 0, 0)}
 COLOR_MAX = pg.Color(194,  44,  84)
+SCALE = (4, 4)              # should derive from: W, H, hoodsize, valrange -> scale up to prevent lag
 
 def set_colordict(val_range:int) -> None:
     global VALUES
@@ -48,69 +49,94 @@ def pad_to_fit(arr:np.ndarray, shape:tuple) -> np.ndarray:
     before1 = rows - arr.shape[1] - after1
     return np.pad(arr, ((before0, after0), (before1, after1)))
 
-def main(grid:np.ndarray, kernel: np.ndarray, rule:np.ndarray,
-         scale:tuple[int,int], val_range:int) -> bool:
-    pg.event.set_blocked(None)
-    pg.event.set_allowed(EVENTS)
-    grid = np.random.random(grid.shape) * (val_range - 1)
-    grid = grid.round()
-    set_colordict(val_range)
-    rez = (grid.shape[0] * scale[0], grid.shape[1] * scale[1])
-    win = pg.display.set_mode(rez, flags=pg.NOFRAME)
-    show_totalistic(win, grid.astype(np.int64), val_range)
-    clock = pg.time.Clock()
-    autoflip = False
-    running = True
-    while running:
-        clock.tick(FPS)
-        for event in pg.event.get():
-            match event.type:
-                case pg.QUIT:
-                    return False
-                case pg.KEYDOWN:
-                    match event.key:
-                        case pg.K_SPACE:
-                            autoflip = not autoflip
-                        case pg.K_q:        # quit
-                            if event.mod & pg.KMOD_CTRL:
-                                return False
-                        case pg.K_r:        # re-set, randomize
-                            if event.mod & pg.KMOD_CTRL: 
-                                autoflip = False
-                                grid = np.random.random(grid.shape) \
-                                    * (val_range - 1)
-                                grid = grid.round()
-                                show_totalistic(win, grid.astype(np.int64), val_range)
-                        case pg.K_n:        # new game
-                            if event.mod & pg.KMOD_CTRL:
-                                return True
-        if autoflip: # advance 1 gen 
-            grid = flip_totalistic(grid, kernel, rule) 
-            show_totalistic(win, grid.astype(np.int64), val_range)
-        pg.display.update()
+class GameTotalistic:
+    def __init__(self, grid:np.ndarray, kernel:np.ndarray, rule:np.ndarray,
+                 scale:tuple[int,int], val_range:int):
+        self.grid   = grid
+        self.kernel = kernel
+        self.rule   = rule
+        self.scale  = scale
+        self.val_range = val_range
+        set_colordict(val_range)
+        rez = (grid.shape[0] * scale[0], grid.shape[1] * scale[1])
+        self.win = pg.display.set_mode(rez, flags=pg.NOFRAME)
+        self.show()
 
-SCALE = (4, 4)              # should derive from: W, H, hoodsize, valrange -> scale up to prevent lag
-COLS  = MAX_W // SCALE[0]
-COLS -= COLS % 2
-ROWS  = MAX_H // SCALE[1]
-ROWS -= ROWS % 2
-GRID  = np.zeros((COLS, ROWS))
+    def show(self):
+        show_totalistic(self.win, self.grid.astype(np.int64), self.val_range)
 
-if __name__ == '__main__':
-    # current args: hood, hoodsize, valrange
+    def flip(self):
+        self.grid = flip_totalistic(self.grid, self.kernel, self.rule)
+        self.show()
+        
+        
+####################
+
+def main() -> bool:
+    cols  = MAX_W // SCALE[0]
+    cols -= cols % 2
+    rows  = MAX_H // SCALE[1]
+    rows -= rows % 2
+    grid  = np.zeros((cols, rows))
+    scale = SCALE
+    # DEFAULTS: current args:: hood, hoodsize, val_range, seed
     hood = 'V'
     hood_size = 2
     val_range = 4       # cell values are in range(3)
-    ca_code = 'Q' + hood + repr(hood_size) + 'T' + repr(val_range)
-    print(f'CA: {ca_code}')
+    # KERNEL: 
     kernel = get_square_kernel(hood, hood_size)
-    kernel = pad_to_fit(kernel, GRID.shape)
+    kernel = pad_to_fit(kernel, grid.shape)
+    # RULE
     rule = random_totalistic_rule(kernel, val_range=val_range)
-    repeat = main(GRID, kernel, rule, SCALE, val_range)
-    while repeat:
-        GRID *= 0
-        kernel = pad_to_fit(get_square_kernel(hood, hood_size), GRID.shape)
-        rule = random_totalistic_rule(kernel, val_range=val_range)
-        repeat = main(GRID, kernel, rule, SCALE, val_range)
+    # SEED: single shape: max-range QV9, randomized 
+    seed  = get_square_kernel('v', 9)
+    seed *= np.random.random(seed.shape) * (val_range - 1)
+    seed = seed.round()
+    print(f'SEED:\n{seed}')
+    seed = pad_to_fit(seed, grid.shape)
+    grid += seed
+    # # alt: 'noise'
+    # grid = np.random.random(grid.shape) * (val_range - 1)
+    # grid = grid.round()
+    # GAME:
+    game = GameTotalistic(grid, kernel, rule, scale, val_range)
+    menu = GameMenu()
+    ############ MAIN LOOP #######
+    clock = pg.time.Clock()
+    autoflip = False
+    running  = True
+    pg.event.set_blocked(None)
+    pg.event.set_allowed(EVENTS)
+    while running:
+        clock.tick(FPS)
+        if menu.showing:
+            menu.handle_events(game)
+        else:
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    return False
+                elif event.type == pg.KEYDOWN:
+                    if event.key ==    pg.K_SPACE:
+                        autoflip = not autoflip
+                    elif event.key ==  pg.K_ESCAPE:
+                        menu.show(game)
+                        autoflip = False
+                    elif event.key ==  pg.K_q:        # quit
+                        if event.mod & pg.KMOD_CTRL: break
+                    elif event.key ==  pg.K_r:        # re-set, randomize
+                        if event.mod & pg.KMOD_CTRL: 
+                            autoflip = False
+                            game.grid = np.random.random(game.grid.shape) \
+                                * (game.val_range - 1)
+                            game.grid = game.grid.round()
+                            game.show()
+        if autoflip: # advance 1 gen 
+            game.flip()
+        pg.display.update()
+
+
+
+if __name__ == '__main__':
+    main()
     pg.quit()
     quit()

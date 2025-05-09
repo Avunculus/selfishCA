@@ -1,5 +1,20 @@
 from constants import *
 
+
+class GameMenu:
+    def __init__(self):
+        self.showing = False
+    def show(self, game):
+        self.showing = True
+    def handle_events(self, game):
+        for event in pg.event.get():
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    self.showing = False
+
+#########################################
+
+
 class ChoiceField(pg.Rect):
     def __init__(self, name:str, choices:list[str], font:pg.font.Font=FONT):
         label = font.render(name + ': ', 1, COLORS[2])

@@ -8,7 +8,7 @@ pg.display.init()
 
 MAX_W, MAX_H = pg.display.get_desktop_sizes()[0]
 BF = 4
-FH = 24
+FH = 24 # make dependent on MAX_H, MAX_W
 FPS = 12
 FONT = pg.font.SysFont('couriernew', FH, bold=True)
 FONT_SMALL = pg.font.SysFont('couriernew', 12, bold=True)
@@ -70,6 +70,14 @@ def random_totalistic_rule(kernel:np.ndarray, val_range:int=2) -> np.ndarray:
     for i in range(rule.size):
         rule[i] = random.randint(0, val_range - 1)
     print(f'RULE:\n{rule}')
-    # vstack * valrange?
     return rule 
 
+def random_self_tot_rule(kernel:np.ndarray, val_range:int=2) -> np.ndarray:
+    if val_range < 2: return
+    rule = np.zeros((val_range, np.count_nonzero(kernel) * (val_range - 1) + 1))
+    h, w = rule.shape
+    for i in range(h):
+        for j in range(w):
+            rule[i, j] = random.randint(0, val_range - 1)
+    print(f'RULE:\n{rule}')
+    return rule
